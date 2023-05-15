@@ -1,77 +1,95 @@
 using System.Collections;
 using System.Collections.Generic;
-using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.UI;
+using UnityEngine.AI;
 
 public class PlayerController : MonoBehaviour
 {
-    float hp = 10;
     public GameObject bulletPrefab;
-    public float bulletSpeed = 20;
-    public float playerSpeed = 2;
-    Vector2 movementVector;
-    Transform bulletSpawn;
-    public GameObject hpBar;
-    Scrollbar hpScrollBar;
 
+    int hp;
+    Vector2 inputVector;
+    Rigidbody rb;
+    Transform bulletSpawn;
+    NavMeshAgent agent;
     // Start is called before the first frame update
     void Start()
     {
-        movementVector = Vector2.zero;
+        inputVector = Vector2.zero;    
+        rb = GetComponent<Rigidbody>();
         bulletSpawn = transform.Find("BulletSpawn");
-        hpScrollBar = hpBar.GetComponent<Scrollbar>();
+        agent = GetComponent<NavMeshAgent>();
+        hp = 10;
     }
 
     // Update is called once per frame
-    void Update()
+    void LateUpdate()
     {
-        //obrót wokó³ osi Y o iloœæ stopni równ¹ wartosci osi X kontrolera
-        transform.Rotate(Vector3.up * movementVector.x);
-        //przesuniêcie do przodu (transform.forward) o wychylenie osi Y kontrolera w czasie jednej klatki
-        transform.Translate(Vector3.forward * movementVector.y * Time.deltaTime * playerSpeed);
+        //obrót z klawiatury
+        Vector3 rotation = new Vector3(0, inputVector.x, 0);
+        transform.Rotate(rotation);
+        //przesuniêcie przy u¿yciu navmesh
+        if (inputVector.y > 0)
+        {
+            agent.isStopped = false;
+            agent.destination = transform.position + transform.forward;
+        }
+        if (inputVector.y == 0)
+        {
+            agent.isStopped = true;
+        }
     }
-    
-    void OnMove(InputValue inputValue) 
+    private void FixedUpdate()
     {
-        movementVector = inputValue.Get<Vector2>();
-
-        //Debug.Log(movementVector.ToString());
+        //if(inputVector.y == 0)
+        //{
+        //    //nie trzymamy wciœniêtego "w" ani "s"
+        //    rb.velocity = Vector3.zero;
+        //} 
+        //else
+        //{
+        //    //metoda z fizyk¹
+        //    //wez kierunek do przodu wzglêdem postaci i przemnó¿ przez wychylenie kontrolera
+        //    Vector3 movement = transform.forward * inputVector.y;
+        //    rb.AddForce(movement, ForceMode.Impulse);
+        //}
+        //if(inputVector.x == 0)
+        //{
+        //    rb.angularVelocity = Vector3.zero;
+        //} 
+        //else
+        //{
+        //    Vector3 rotation = transform.up * inputVector.x;
+        //    rb.AddTorque(rotation, ForceMode.Impulse);
+        //}
+        
     }
 
+    void OnMove(InputValue inputValue)
+    {
+        inputVector = inputValue.Get<Vector2>();
+    }
     void OnFire()
     {
         GameObject bullet = Instantiate(bulletPrefab, bulletSpawn);
-        bullet.transform.parent = null;
-        bullet.GetComponent<Rigidbody>().AddForce(bullet.transform.forward*bulletSpeed, ForceMode.VelocityChange);
-        Destroy(bullet, 5);
+        bullet.GetComponent<Rigidbody>().AddForce(bullet.transform.forward * 10, ForceMode.Impulse);
+        Destroy(bullet, 5f);
     }
-
     private void OnCollisionEnter(Collision collision)
     {
-        if(collision.gameObject.CompareTag("Enemy"))
+        Debug.Log(collision.ToString());
+    }
+    private void OnTriggerEnter(Collider other)
+    {
+        if(other.CompareTag("Zombie"))
         {
-   
             hp--;
-            if(hp <= 0) Die();
-            hpScrollBar.size = hp / 10;
-            Vector3 pushVector = collision.gameObject.transform.position - transform.position;
-            collision.gameObject.GetComponent<Rigidbody>().AddForce(pushVector.normalized*5, ForceMode.Impulse);
         }
-        if(collision.gameObject.CompareTag("Heal"))
+        if (other.CompareTag("Heal"))
         {
             hp = 10;
-            hpScrollBar.size = hp / 10;
-            Destroy(collision.gameObject);
         }
     }
-    void Die()
-    {
-        GetComponent<BoxCollider>().enabled = false;
-        transform.Translate(Vector3.up);
-        transform.Rotate(Vector3.right * -90);
-        
-        //Time.timeScale = 0;
-    }
+
 }
